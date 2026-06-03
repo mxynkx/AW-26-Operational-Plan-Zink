@@ -26,40 +26,48 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-surface-container-lowest border border-surface-border rounded-xl shadow-lg p-8">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/datahat-logo.png" alt="Data-Hat" className="h-14 w-auto mb-4 object-contain" />
-          <h1 className="text-headline-md font-bold text-primary">AW26 Operational Plan</h1>
-          <p className="text-body-md text-secondary mt-1">Sign in to continue</p>
+      <div className="w-full max-w-[320px] bg-surface-container-lowest border border-surface-border rounded-lg shadow-md p-5">
+        <div className="flex flex-col items-center mb-4">
+          <img
+            src="/datahat-logo.png"
+            alt="Data-Hat"
+            className="h-8 max-w-[180px] w-auto mb-3 object-contain"
+          />
+          <h1 className="text-base font-bold text-primary text-center">AW26 Operational Plan</h1>
+          <p className="text-xs text-secondary mt-0.5">Sign in to continue</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-label-caps text-secondary block mb-1">Username</label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-secondary block mb-1">
+              Username
+            </label>
             <input
               type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border border-surface-border rounded px-3 py-2 text-body-md bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              className="w-full border border-surface-border rounded px-2.5 py-1.5 text-sm bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
               required
             />
           </div>
           <div>
-            <label className="text-label-caps text-secondary block mb-1">Password</label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-secondary block mb-1">
+              Password
+            </label>
             <input
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-surface-border rounded px-3 py-2 text-body-md bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+              className="w-full border border-surface-border rounded px-2.5 py-1.5 text-sm bg-surface-container-lowest focus:border-primary focus:ring-1 focus:ring-primary outline-none"
               required
             />
           </div>
-          {error ? <p className="text-error text-body-md">{error}</p> : null}
+          {error ? <p className="text-error text-xs">{error}</p> : null}
           <button
             type="submit"
-            className="w-full bg-primary text-on-primary py-2.5 rounded text-label-caps hover:bg-on-primary-fixed-variant transition-colors"
+            className="w-full bg-primary text-on-primary py-2 rounded text-xs font-bold uppercase tracking-wide hover:bg-on-primary-fixed-variant transition-colors"
           >
             Sign In
           </button>
