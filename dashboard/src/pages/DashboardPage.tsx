@@ -1,35 +1,63 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { AppShell } from "../components/AppShell";
 import { ChartsPanel } from "../components/ChartsPanel";
+import { DashboardFilterSidebar } from "../components/DashboardFilterSidebar";
 import { KpiBar } from "../components/KpiBar";
-import { TopNav } from "../components/TopNav";
+import { SummaryTable } from "../components/SummaryTable";
 import { useData } from "../context/DataContext";
-import { chartByCategoryContribution, chartBySize, computeKpis } from "../utils/pivot";
-import { applyTableFilters } from "../utils/tableFilters";
-import { createEmptyTableFilters } from "../types/tableFilters";
+import {
+  DEFAULT_DASHBOARD_FILTERS,
+  type DashboardFilters,
+} from "../types/planFilters";
+import { computeKpis } from "../utils/metrics";
+import { chartByCategoryContribution, chartBySize, chartBySizeSoh } from "../utils/pivot";
+import {
+  applyDashboardFilters,
+  countUniqueMonths,
+  countUniqueStores,
+} from "../utils/planFilters";
 
 export function DashboardPage() {
-  const { rows, meta, loading, error, search, setSearch } = useData();
+  const { rows, meta, loading, error } = useData();
+  const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+
+  const categories = meta?.dimensions.Category ?? [];
 
   const filteredRows = useMemo(
-    () => applyTableFilters(rows, createEmptyTableFilters(), search),
-    [rows, search],
+    () =>
+      applyDashboardFilters(
+        rows,
+        filters.categories.length > 0
+          ? filters
+          : { ...filters, categories: categories },
+      ),
+    [rows, filters, categories],
   );
 
   const kpis = useMemo(() => computeKpis(filteredRows), [filteredRows]);
-  const sizeChart = useMemo(() => chartBySize(filteredRows), [filteredRows]);
-  const categoryChart = useMemo(() => chartByCategoryContribution(filteredRows), [filteredRows]);
+  const sizeSales = useMemo(() => chartBySize(filteredRows), [filteredRows]);
+  const sizeSoh = useMemo(() => chartBySizeSoh(filteredRows), [filteredRows]);
+  const categoryChart = useMemo(
+    () => chartByCategoryContribution(filteredRows),
+    [filteredRows],
+  );
+
+  function resetFilters() {
+    setFilters(DEFAULT_DASHBOARD_FILTERS);
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-on-surface">
-        Loading operational plan...
+      <div className="h-screen flex flex-col items-center justify-center gap-3 bg-background">
+        <div className="w-8 h-8 border-[3px] border-surface-border border-t-primary rounded-full animate-spin" />
+        <p className="text-[13px] text-secondary font-medium">Loading plan data...</p>
       </div>
     );
   }
 
   if (error || !meta) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-error p-8 text-center">
+      <div className="h-screen flex items-center justify-center bg-background text-error p-8 text-center">
         <div>
           <h1 className="text-headline-md font-bold mb-2">Unable to load dashboard</h1>
           <p>{error}</p>
@@ -39,26 +67,28 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <TopNav search={search} onSearchChange={setSearch} showSearch />
-      <KpiBar
-        target={kpis.target}
-        sales={kpis.sales}
-        soh={kpis.soh}
-        sellThrough={kpis.sellThrough}
-      />
-      <main className="flex-1 overflow-auto">
-        <ChartsPanel sizeData={sizeChart} categoryData={categoryChart} />
-        <div className="p-6 text-center text-secondary text-body-md">
-          <p>
-            Showing summary for {filteredRows.length.toLocaleString("en-IN")} rows
-            {search ? " (search applied)" : ""}.
-          </p>
-          <p className="mt-1">
-            Open <strong className="text-primary">Plan Data</strong> for the full table with column filters.
-          </p>
+    <AppShell storeBadge={countUniqueStores(filteredRows)}>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <DashboardFilterSidebar
+          meta={meta}
+          filters={filters}
+          allCategories={categories}
+          onChange={setFilters}
+          onReset={resetFilters}
+        />
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 min-h-0">
+          <KpiBar
+            target={kpis.target}
+            sales={kpis.sales}
+            soh={kpis.soh}
+            sellThrough={kpis.sellThrough}
+            storeCount={countUniqueStores(filteredRows)}
+            monthCount={countUniqueMonths(filteredRows)}
+          />
+          <ChartsPanel sizeSales={sizeSales} sizeSoh={sizeSoh} categoryData={categoryChart} />
+          <SummaryTable rows={filteredRows} />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -3,7 +3,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { DataProvider } from "./context/DataContext";
 import { DashboardPage } from "./pages/DashboardPage";
-import { DataExplorerPage } from "./pages/DataExplorerPage";
+import { PivotExplorerPage } from "./pages/PivotExplorerPage";
 import { LoginPage } from "./pages/LoginPage";
 
 function App() {
@@ -19,7 +19,8 @@ function App() {
                 <DataProvider>
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />
-                    <Route path="/data" element={<DataExplorerPage />} />
+                    <Route path="/pivot" element={<PivotExplorerPage />} />
+                    <Route path="/data" element={<Navigate to="/pivot" replace />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </DataProvider>

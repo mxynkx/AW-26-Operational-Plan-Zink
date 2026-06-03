@@ -1,5 +1,5 @@
 {
-  "source_file": "AW26 Operational Plan June 2026.xlsx",
+  "source_file": "AW26 Operational Plan June 2026V2.xlsx",
   "row_count_raw": 12600,
   "row_count_pivot": 151200,
   "dimensions": {
@@ -342,20 +342,20 @@
     "Total_SOH_Units_Row"
   ],
   "verification": {
-    "sales_units_row_total": 326399.0,
-    "sales_units_by_size_total": 326596.0,
-    "sales_units_delta": -197.0,
+    "sales_units_row_total": 326472.0,
+    "sales_units_by_size_total": 326782.0,
+    "sales_units_delta": -310.0,
     "season_sales_total": 326383.0,
     "season_sales_row_total": 326383.0,
-    "total_soh_row_total": 449768.0,
+    "total_soh_row_total": 449840.0,
     "target_store_month_total": 3298009195.0,
     "size_breakdown": {
-      "1XS": 18879.0,
-      "2S": 53846.0,
-      "3M": 77726.0,
-      "4L": 79274.0,
-      "5XL": 60091.0,
-      "6XXL": 36780.0,
+      "1XS": 18664.0,
+      "2S": 51048.0,
+      "3M": 76346.0,
+      "4L": 78348.0,
+      "5XL": 60549.0,
+      "6XXL": 41827.0,
       "7XXXL": 0.0
     },
     "season_breakdown": {

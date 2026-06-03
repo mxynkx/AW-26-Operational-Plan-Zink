@@ -1,4 +1,4 @@
-import { getField } from "../config/fields";
+import { storeMonthKey, sumTargetDeduplicated } from "./metrics";
 import {
   SIZE_COLUMNS,
   type MetricId,
@@ -6,6 +6,8 @@ import {
   type SizeColumn,
   type TableRow,
 } from "../types/plan";
+
+const CELL_SEP = "\0";
 
 function dimensionValue(row: TableRow, dimension: string, size?: SizeColumn | null): string {
   if (dimension === "Size") {
@@ -43,23 +45,59 @@ function usesSize(dimensions: string[]): boolean {
   return dimensions.includes("Size");
 }
 
-function iteratePivotEntries(
-  rows: TableRow[],
-  rowDims: string[],
-  colDims: string[],
-  onEntry: (row: TableRow, size: SizeColumn | null) => void,
-) {
-  const expandSize = usesSize(rowDims) || usesSize(colDims);
-
-  for (const row of rows) {
-    if (expandSize) {
-      for (const size of SIZE_COLUMNS) {
-        onEntry(row, size);
-      }
-    } else {
-      onEntry(row, null);
-    }
+function buildDimensionKey(row: TableRow, dims: string[], size: SizeColumn | null): string {
+  if (dims.length === 0) {
+    return "Total";
   }
+  return dims.map((d) => dimensionValue(row, d, size)).join(" - ");
+}
+
+function sizeFromKeys(rowKey: string, colKey: string, rowDims: string[], colDims: string[]): SizeColumn | null {
+  if (!usesSize(rowDims) && !usesSize(colDims)) {
+    return null;
+  }
+  return SIZE_COLUMNS.find((s) => rowKey.includes(s) || colKey.includes(s)) ?? null;
+}
+
+interface CellAccumulator {
+  sums: Record<string, number>;
+  targetByStoreMonth: Map<string, number>;
+}
+
+function createAccumulator(): CellAccumulator {
+  return { sums: {}, targetByStoreMonth: new Map() };
+}
+
+function addToAccumulator(
+  acc: CellAccumulator,
+  row: TableRow,
+  metrics: string[],
+  sizeLabel: SizeColumn | null,
+): void {
+  for (const metric of metrics) {
+    if (metric === "Target") {
+      const key = storeMonthKey(row);
+      if (!acc.targetByStoreMonth.has(key)) {
+        acc.targetByStoreMonth.set(key, row.Target);
+      }
+      continue;
+    }
+
+    const delta = metricValue(row, metric, sizeLabel);
+    acc.sums[metric] = (acc.sums[metric] ?? 0) + delta;
+  }
+}
+
+function finalizeAccumulator(acc: CellAccumulator, metrics: string[]): Record<string, number> {
+  const values: Record<string, number> = { ...acc.sums };
+  if (metrics.includes("Target")) {
+    let target = 0;
+    for (const v of acc.targetByStoreMonth.values()) {
+      target += v;
+    }
+    values.Target = target;
+  }
+  return values;
 }
 
 export interface PivotCell {
@@ -68,107 +106,193 @@ export interface PivotCell {
   values: Record<string, number>;
 }
 
-export function buildPivotMatrix(rows: TableRow[], config: PivotConfig): PivotCell[] {
+export interface PivotResult {
+  cells: PivotCell[];
+  grandTotal: Record<string, number>;
+}
+
+export interface PivotGrid {
+  rowKeys: string[];
+  colKeys: string[];
+  getCell: (rowKey: string, colKey: string) => Record<string, number>;
+  colTotals: Record<string, Record<string, number>>;
+  grandTotal: Record<string, number>;
+}
+
+function sortKeys(keys: string[]): string[] {
+  return [...keys].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function rowsForColKey(rows: TableRow[], colDims: string[], colKey: string): TableRow[] {
+  if (colDims.length === 0) {
+    return rows;
+  }
+
+  const expandSize = usesSize(colDims);
+  return rows.filter((row) => {
+    const sizes: (SizeColumn | null)[] = expandSize ? [...SIZE_COLUMNS] : [null];
+    return sizes.some((size) => buildDimensionKey(row, colDims, size) === colKey);
+  });
+}
+
+function runPivotAggregation(
+  rows: TableRow[],
+  config: PivotConfig,
+): {
+  accumulators: Map<string, CellAccumulator>;
+  rowKeys: Set<string>;
+  colKeys: Set<string>;
+} {
   const { rows: rowDims, cols: colDims, values: metrics } = config;
+  const expandSize = usesSize(rowDims) || usesSize(colDims);
+  const accumulators = new Map<string, CellAccumulator>();
+  const rowKeys = new Set<string>();
+  const colKeys = new Set<string>();
+
+  for (const row of rows) {
+    const sizes: (SizeColumn | null)[] = expandSize ? [...SIZE_COLUMNS] : [null];
+
+    for (const size of sizes) {
+      const rowKey = buildDimensionKey(row, rowDims, size);
+      const colKey = buildDimensionKey(row, colDims, size);
+      const key = `${rowKey}${CELL_SEP}${colKey}`;
+
+      rowKeys.add(rowKey);
+      colKeys.add(colKey);
+
+      let acc = accumulators.get(key);
+      if (!acc) {
+        acc = createAccumulator();
+        accumulators.set(key, acc);
+      }
+
+      const sizeLabel = sizeFromKeys(rowKey, colKey, rowDims, colDims);
+      addToAccumulator(acc, row, metrics, sizeLabel);
+    }
+  }
+
+  return { accumulators, rowKeys, colKeys };
+}
+
+export function buildPivotGrid(rows: TableRow[], config: PivotConfig): PivotGrid {
+  const { values: metrics } = config;
+  const empty: PivotGrid = {
+    rowKeys: [],
+    colKeys: [],
+    getCell: () => ({}),
+    colTotals: {},
+    grandTotal: {},
+  };
+
   if (metrics.length === 0) {
-    return [];
+    return empty;
   }
 
-  const map = new Map<string, PivotCell>();
+  const { accumulators, rowKeys: rowKeySet, colKeys: colKeySet } = runPivotAggregation(rows, config);
+  const rowKeys = sortKeys([...rowKeySet]);
+  const colKeys = sortKeys([...colKeySet]);
 
-  iteratePivotEntries(rows, rowDims, colDims, (row, size) => {
-    const rowKey = rowDims.length
-      ? rowDims.map((d) => dimensionValue(row, d, size)).join(" · ")
-      : "Total";
-    const colKey = colDims.length
-      ? colDims.map((d) => dimensionValue(row, d, size)).join(" · ")
-      : "Total";
-    const key = `${rowKey}|||${colKey}`;
+  const cellValues = new Map<string, Record<string, number>>();
+  for (const [key, acc] of accumulators) {
+    cellValues.set(key, finalizeAccumulator(acc, metrics));
+  }
 
-    if (!map.has(key)) {
-      map.set(key, { rowKey, colKey, values: Object.fromEntries(metrics.map((m) => [m, 0])) });
-    }
+  const colTotals: Record<string, Record<string, number>> = {};
+  const { cols: colDims } = config;
 
-    const cell = map.get(key)!;
+  for (const colKey of colKeys) {
+    colTotals[colKey] = {};
     for (const metric of metrics) {
-      cell.values[metric] = (cell.values[metric] ?? 0) + metricValue(row, metric, size);
-    }
-  });
-
-  return Array.from(map.values()).sort((a, b) => {
-    const rowCmp = a.rowKey.localeCompare(b.rowKey, undefined, { numeric: true });
-    return rowCmp !== 0 ? rowCmp : a.colKey.localeCompare(b.colKey, undefined, { numeric: true });
-  });
-}
-
-function pickDimension(pivot: PivotConfig, preferred: string[], fallback: string): string {
-  const all = [...pivot.rows, ...pivot.cols];
-  for (const dim of preferred) {
-    if (all.includes(dim)) {
-      return dim;
+      if (metric === "Target") {
+        const colRows = rowsForColKey(rows, colDims, colKey);
+        colTotals[colKey].Target = sumTargetDeduplicated(colRows);
+      } else {
+        colTotals[colKey][metric] = 0;
+        for (const rowKey of rowKeys) {
+          const cell = cellValues.get(`${rowKey}${CELL_SEP}${colKey}`);
+          if (cell) {
+            colTotals[colKey][metric] = (colTotals[colKey][metric] ?? 0) + (cell[metric] ?? 0);
+          }
+        }
+      }
     }
   }
-  return all[0] ?? fallback;
-}
 
-export function chartLineFromPivot(rows: TableRow[], pivot: PivotConfig) {
-  const xDim = pickDimension(pivot, ["Month"], "Month");
-  const metrics =
-    pivot.values.length > 0 ? pivot.values : (["Sales_Units", "Total_SOH_Units"] as const);
-  const map = new Map<string, Record<string, number>>();
-
-  iteratePivotEntries(rows, [xDim], [], (row, size) => {
-    const key = dimensionValue(row, xDim, size);
-    const entry = map.get(key) ?? Object.fromEntries(metrics.map((m) => [m, 0]));
-
-    for (const metric of metrics) {
-      entry[metric] = (entry[metric] ?? 0) + metricValue(row, metric, size);
+  const grandTotal: Record<string, number> = {};
+  for (const metric of metrics) {
+    if (metric === "Target") {
+      grandTotal.Target = sumTargetDeduplicated(rows);
+    } else {
+      grandTotal[metric] = rows.reduce((sum, row) => sum + metricValue(row, metric, null), 0);
     }
+  }
 
-    map.set(key, entry);
-  });
-
-  return Array.from(map.entries())
-    .map(([key, values]) => ({
-      label: xDim === "Month" ? `Month ${key}` : key,
-      sales: values.Sales_Units ?? 0,
-      soh: values.Total_SOH_Units ?? 0,
-      target: values.Target ?? 0,
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  return {
+    rowKeys,
+    colKeys,
+    getCell: (rowKey, colKey) => cellValues.get(`${rowKey}${CELL_SEP}${colKey}`) ?? {},
+    colTotals,
+    grandTotal,
+  };
 }
 
-export function chartBarFromPivot(rows: TableRow[], pivot: PivotConfig) {
-  const dim = pickDimension(pivot, ["Grade", "Site_Code", "Category", "Size"], "Grade");
-  const metric = pivot.values[0] ?? "Sales_Units";
-  const map = new Map<string, number>();
+export function buildPivotResult(rows: TableRow[], config: PivotConfig): PivotResult {
+  const { values: metrics } = config;
 
-  iteratePivotEntries(rows, [dim], [], (row, size) => {
-    const key = dimensionValue(row, dim, size);
-    map.set(key, (map.get(key) ?? 0) + metricValue(row, metric, size));
-  });
+  if (metrics.length === 0) {
+    return { cells: [], grandTotal: {} };
+  }
 
-  return Array.from(map.entries())
-    .map(([name, sales]) => ({ grade: name, sales }))
-    .sort((a, b) => b.sales - a.sales);
+  const grid = buildPivotGrid(rows, config);
+  const cells: PivotCell[] = [];
+
+  for (const rowKey of grid.rowKeys) {
+    for (const colKey of grid.colKeys) {
+      cells.push({
+        rowKey,
+        colKey,
+        values: grid.getCell(rowKey, colKey),
+      });
+    }
+  }
+
+  return { cells, grandTotal: grid.grandTotal };
 }
 
-export function chartBySize(rows: TableRow[]) {
+export function buildPivotMatrix(rows: TableRow[], config: PivotConfig): PivotCell[] {
+  return buildPivotResult(rows, config).cells;
+}
+
+/** Sizes shown on dashboard Size Curve (matches reference HTML). */
+export const SIZE_CURVE_COLUMNS = ["1XS", "2S", "3M", "4L", "5XL", "6XXL"] as const;
+
+function chartBySizeField(
+  rows: TableRow[],
+  field: "Sales_By_Size" | "SOH_By_Size",
+): { name: string; value: number; percent: number }[] {
   const totals: Record<string, number> = {};
 
   for (const row of rows) {
-    for (const [size, units] of Object.entries(row.Sales_By_Size)) {
+    for (const [size, units] of Object.entries(row[field])) {
       totals[size] = (totals[size] ?? 0) + units;
     }
   }
 
   const total = Object.values(totals).reduce((sum, v) => sum + v, 0) || 1;
 
-  return SIZE_COLUMNS.map((size) => ({
+  return SIZE_CURVE_COLUMNS.map((size) => ({
     name: size,
     value: totals[size] ?? 0,
     percent: ((totals[size] ?? 0) / total) * 100,
-  })).filter((item) => item.value > 0);
+  }));
+}
+
+export function chartBySize(rows: TableRow[]) {
+  return chartBySizeField(rows, "Sales_By_Size");
+}
+
+export function chartBySizeSoh(rows: TableRow[]) {
+  return chartBySizeField(rows, "SOH_By_Size");
 }
 
 export function chartByCategoryContribution(rows: TableRow[]) {
@@ -187,39 +311,4 @@ export function chartByCategoryContribution(rows: TableRow[]) {
       percent: (value / total) * 100,
     }))
     .sort((a, b) => b.value - a.value);
-}
-
-export function chartPieFromPivot(rows: TableRow[], pivot: PivotConfig) {
-  const dim = pickDimension(pivot, ["Category", "Grade", "Site_Code"], "Category");
-  const metric = pivot.values[0] ?? "Sales_Units";
-  const map = new Map<string, number>();
-
-  iteratePivotEntries(rows, [dim], [], (row, size) => {
-    const key = dimensionValue(row, dim, size);
-    map.set(key, (map.get(key) ?? 0) + metricValue(row, metric, size));
-  });
-
-  const total = Array.from(map.values()).reduce((sum, v) => sum + v, 0) || 1;
-
-  return Array.from(map.entries()).map(([name, value]) => ({
-    name,
-    value,
-    percent: (value / total) * 100,
-  }));
-}
-
-export function getBarChartTitle(pivot: PivotConfig): string {
-  const dim = pickDimension(pivot, ["Grade", "Site_Code", "Category", "Size"], "Grade");
-  const field = getField(dim);
-  const metric = getField(pivot.values[0] ?? "Sales_Units");
-  return `${metric?.label ?? "Units"} by ${field?.label ?? dim}`;
-}
-
-export function computeKpis(rows: TableRow[]) {
-  const target = rows.reduce((sum, row) => sum + row.Target, 0);
-  const sales = rows.reduce((sum, row) => sum + row.Sales_Units, 0);
-  const soh = rows.reduce((sum, row) => sum + row.Total_SOH_Units, 0);
-  const sellThrough = sales + soh > 0 ? (sales / (sales + soh)) * 100 : 0;
-
-  return { target, sales, soh, sellThrough };
 }

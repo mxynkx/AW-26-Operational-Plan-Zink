@@ -66,7 +66,7 @@ function DropZone({
         isOver ? "border-primary bg-primary-fixed/30" : "border-surface-border"
       }`}
     >
-      <span className="text-label-caps text-secondary mb-2 block">{label}</span>
+      <span className="text-label-caps text-secondary mb-2 block font-bold tracking-wide">{label}</span>
       <div className="flex flex-wrap gap-2 flex-1 items-start content-start min-h-[32px]">
         {items.length === 0 ? (
           <span className="text-[11px] text-secondary italic">Drop field here</span>

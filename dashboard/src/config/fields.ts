@@ -21,8 +21,8 @@ export function getField(id: string): FieldItem | undefined {
   return ALL_FIELDS.find((field) => field.id === id);
 }
 
-export const DEFAULT_PIVOT = {
-  rows: ["Grade"],
-  cols: ["Month"],
-  values: ["Sales_Units", "Total_SOH_Units"],
+export const DATA_PAGE_PIVOT = {
+  rows: ["Site_Code", "Month"],
+  cols: ["Category"],
+  values: ["Sales_Units", "Total_SOH_Units", "Target"],
 };

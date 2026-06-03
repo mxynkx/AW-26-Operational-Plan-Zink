@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-EXCEL_PATH = ROOT / "AW26 Operational Plan June 2026.xlsx"
+EXCEL_PATH = ROOT / "AW26 Operational Plan June 2026V2.xlsx"
 OUTPUT_PATH = ROOT / "dashboard" / "public" / "data" / "plan.json"
 TABLE_PATH = ROOT / "dashboard" / "public" / "data" / "table.json"
 META_PATH = ROOT / "dashboard" / "public" / "data" / "meta.json"
