@@ -19,7 +19,6 @@ import {
 } from "../utils/pivot";
 import {
   applyDashboardFilters,
-  countUniqueMonths,
   countUniqueStores,
 } from "../utils/planFilters";
 
@@ -89,7 +88,6 @@ export function DashboardPage() {
             soh={kpis.soh}
             sellThrough={kpis.sellThrough}
             storeCount={countUniqueStores(filteredRows)}
-            monthCount={countUniqueMonths(filteredRows)}
           />
           <ChartsPanel
             categorySales={categorySales}

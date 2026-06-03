@@ -6,7 +6,6 @@ interface KpiBarProps {
   soh: number;
   sellThrough: number;
   storeCount?: number;
-  monthCount?: number;
   compact?: boolean;
 }
 
@@ -23,7 +22,6 @@ export function KpiBar({
   soh,
   sellThrough,
   storeCount,
-  monthCount,
   compact = false,
 }: KpiBarProps) {
   const cards = [
@@ -42,7 +40,7 @@ export function KpiBar({
     {
       label: compact ? "SOH Units" : "SOH Units Plan",
       value: formatNumber(soh),
-      sub: monthCount != null ? `${monthCount} months` : "",
+      sub: storeCount != null ? `${storeCount} stores` : "",
       accent: ACCENTS[2],
     },
     {

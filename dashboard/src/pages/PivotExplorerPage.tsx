@@ -16,13 +16,12 @@ import {
 } from "../types/planFilters";
 import { DIM_LABELS } from "../utils/dimensions";
 import {
-  countUniqueMonths,
   countUniqueStores,
 } from "../utils/planFilters";
 import { formatNumber } from "../utils/format";
 import { downloadPivotExcel } from "../utils/exportPivotExcel";
 
-const DIM_OPTIONS: DimKey[] = ["st", "mo", "gr", "cat", "none"];
+const DIM_OPTIONS: DimKey[] = ["st", "mo", "gr", "cat", "sz", "none"];
 
 function DimSelect({
   value,
@@ -200,7 +199,6 @@ export function PivotExplorerPage() {
           soh={kpis.soh}
           sellThrough={kpis.sellThrough}
           storeCount={countUniqueStores(filteredRows)}
-          monthCount={countUniqueMonths(filteredRows)}
         />
 
         <div className="flex items-center flex-wrap gap-2 px-4 py-1.5 bg-surface-container-lowest border-b border-surface-border shrink-0">

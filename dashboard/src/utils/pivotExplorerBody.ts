@@ -1,6 +1,7 @@
-import { aggregateRowMetrics } from "./metrics";
-import { dimKey, dimLabel } from "./dimensions";
+import { dimLabel } from "./dimensions";
 import {
+  aggregateForPivotKeys,
+  aggregateForPivotRowTotal,
   buildPivotExplorer,
   sellThrough,
   type PivotExplorerCell,
@@ -31,7 +32,7 @@ export function buildPivotBodyRows(
   }
 
   const body: PivotBodyRow[] = [];
-  const { row1Keys, row2Keys, colKeys, hasRow2, hasCol, getCell } = result;
+  const { row1Keys, row2Keys, colKeys, hasRow2, getCell } = result;
   const subtotalSpan = hasRow2 ? row2Keys.length + 1 : row2Keys.length;
 
   for (let ri = 0; ri < row1Keys.length; ri++) {
@@ -47,12 +48,7 @@ export function buildPivotBodyRows(
         sales += c.sales;
         soh += c.soh;
       }
-      const rowSubset = rows.filter((r) => {
-        if (dimKey(r, config.row1) !== k1) return false;
-        if (hasRow2 && dimKey(r, config.row2) !== k2) return false;
-        return true;
-      });
-      const agg = aggregateRowMetrics(rowSubset);
+      const agg = aggregateForPivotRowTotal(rows, config, k1, k2);
 
       body.push({
         kind: "data",
@@ -69,13 +65,10 @@ export function buildPivotBodyRows(
 
     if (hasRow2) {
       const subColCells = colKeys.map((kc) => {
-        const subset = rows.filter(
-          (r) => dimKey(r, config.row1) === k1 && (!hasCol || dimKey(r, config.col) === kc),
-        );
-        const a = aggregateRowMetrics(subset);
+        const a = aggregateForPivotKeys(rows, config, k1, "__", kc);
         return { sales: a.sales, soh: a.soh, target: a.target };
       });
-      const subAll = aggregateRowMetrics(rows.filter((r) => dimKey(r, config.row1) === k1));
+      const subAll = aggregateForPivotRowTotal(rows, config, k1, "__");
       body.push({
         kind: "subtotal",
         row1Key: k1,

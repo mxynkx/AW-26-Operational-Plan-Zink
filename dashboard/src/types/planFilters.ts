@@ -1,4 +1,4 @@
-export type DimKey = "st" | "mo" | "gr" | "cat" | "none";
+export type DimKey = "st" | "mo" | "gr" | "cat" | "sz" | "none";
 
 export interface DashboardFilters {
   month: string;
