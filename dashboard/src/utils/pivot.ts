@@ -1,8 +1,10 @@
 import { storeMonthKey, sumTargetDeduplicated } from "./metrics";
 import {
+  SEASON_COLUMNS,
   SIZE_COLUMNS,
   type MetricId,
   type PivotConfig,
+  type SeasonColumn,
   type SizeColumn,
   type TableRow,
 } from "../types/plan";
@@ -295,11 +297,14 @@ export function chartBySizeSoh(rows: TableRow[]) {
   return chartBySizeField(rows, "SOH_By_Size");
 }
 
-export function chartByCategoryContribution(rows: TableRow[]) {
+function chartByCategoryField(
+  rows: TableRow[],
+  field: "Sales_Units" | "Total_SOH_Units",
+): { name: string; value: number; percent: number }[] {
   const map = new Map<string, number>();
 
   for (const row of rows) {
-    map.set(row.Category, (map.get(row.Category) ?? 0) + row.Sales_Units);
+    map.set(row.Category, (map.get(row.Category) ?? 0) + row[field]);
   }
 
   const total = Array.from(map.values()).reduce((sum, v) => sum + v, 0) || 1;
@@ -311,4 +316,43 @@ export function chartByCategoryContribution(rows: TableRow[]) {
       percent: (value / total) * 100,
     }))
     .sort((a, b) => b.value - a.value);
+}
+
+export function chartByCategoryContribution(rows: TableRow[]) {
+  return chartByCategoryField(rows, "Sales_Units");
+}
+
+export function chartByCategorySoh(rows: TableRow[]) {
+  return chartByCategoryField(rows, "Total_SOH_Units");
+}
+
+function chartBySeasonField(
+  rows: TableRow[],
+  field: "Season_Sales" | "Season_SOH",
+): { name: string; value: number; percent: number }[] {
+  const totals = Object.fromEntries(
+    SEASON_COLUMNS.map((season) => [season, 0]),
+  ) as Record<SeasonColumn, number>;
+
+  for (const row of rows) {
+    for (const season of SEASON_COLUMNS) {
+      totals[season] += row[field][season];
+    }
+  }
+
+  const total = Object.values(totals).reduce((sum, v) => sum + v, 0) || 1;
+
+  return SEASON_COLUMNS.map((season) => ({
+    name: season,
+    value: totals[season] ?? 0,
+    percent: ((totals[season] ?? 0) / total) * 100,
+  }));
+}
+
+export function chartBySeasonSales(rows: TableRow[]) {
+  return chartBySeasonField(rows, "Season_Sales");
+}
+
+export function chartBySeasonSoh(rows: TableRow[]) {
+  return chartBySeasonField(rows, "Season_SOH");
 }

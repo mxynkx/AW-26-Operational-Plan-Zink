@@ -1,13 +1,13 @@
-import { useDeferredValue, useMemo } from "react";
 import { dimLabel } from "../utils/dimensions";
-import { buildPivotBodyRows, sellThrough } from "../utils/pivotExplorerBody";
-import type { PivotExplorerCell, PivotMetric } from "../utils/pivotExplorer";
+import { sellThrough, type PivotBodyRow } from "../utils/pivotExplorerBody";
+import type { PivotExplorerCell, PivotMetric, PivotExplorerResult } from "../utils/pivotExplorer";
 import { formatCompactCurrency, formatNumber, formatPercent } from "../utils/format";
-import type { TableRow } from "../types/plan";
 import type { PivotExplorerConfig } from "../types/planFilters";
 
+export type PivotTableBuilt = { result: PivotExplorerResult; body: PivotBodyRow[] };
+
 interface PivotExplorerTableProps {
-  rows: TableRow[];
+  built: PivotTableBuilt | null;
   config: PivotExplorerConfig;
 }
 
@@ -39,10 +39,7 @@ function cellText(metric: PivotMetric, cell: PivotExplorerCell, st: number): str
   return cell.soh ? formatPercent(st * 100) : "–";
 }
 
-export function PivotExplorerTable({ rows, config }: PivotExplorerTableProps) {
-  const deferredConfig = useDeferredValue(config);
-  const built = useMemo(() => buildPivotBodyRows(rows, deferredConfig), [rows, deferredConfig]);
-
+export function PivotExplorerTable({ built, config }: PivotExplorerTableProps) {
   if (!built) {
     return (
       <div className="aw26-scroll-panel flex items-center justify-center text-secondary text-sm p-8">
@@ -59,7 +56,7 @@ export function PivotExplorerTable({ rows, config }: PivotExplorerTableProps) {
     hasCol: result.hasCol,
     grand: result.grand,
     colGrand: result.colGrand,
-    config: deferredConfig,
+    config,
   };
   const mc = metrics.length;
   const rspan = hasRow2 ? 2 : 1;

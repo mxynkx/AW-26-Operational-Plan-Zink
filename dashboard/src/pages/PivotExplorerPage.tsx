@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { FilterSelect } from "../components/FilterSelect";
 import { KpiBar } from "../components/KpiBar";
+import { LoadingOverlay, LoadingPanel } from "../components/LoadingPanel";
 import { PivotExplorerTable } from "../components/PivotExplorerTable";
 import { MONTH_LABELS, MONTH_ORDER, GRADE_ORDER, GRADE_LABELS } from "../config/months";
 import { useData } from "../context/DataContext";
+import { usePivotPrepare } from "../hooks/usePivotPrepare";
 import {
   DEFAULT_PIVOT_EXPLORER,
   DEFAULT_PIVOT_FILTERS,
@@ -13,13 +15,12 @@ import {
   type PivotPageFilters,
 } from "../types/planFilters";
 import { DIM_LABELS } from "../utils/dimensions";
-import { computeKpis } from "../utils/metrics";
 import {
-  applyPivotPageFilters,
   countUniqueMonths,
   countUniqueStores,
 } from "../utils/planFilters";
 import { formatNumber } from "../utils/format";
+import { downloadPivotExcel } from "../utils/exportPivotExcel";
 
 const DIM_OPTIONS: DimKey[] = ["st", "mo", "gr", "cat", "none"];
 
@@ -54,12 +55,14 @@ export function PivotExplorerPage() {
   const { rows, meta, loading, error } = useData();
   const [filters, setFilters] = useState<PivotPageFilters>(DEFAULT_PIVOT_FILTERS);
   const [config, setConfig] = useState<PivotExplorerConfig>(DEFAULT_PIVOT_EXPLORER);
+  const [exporting, setExporting] = useState(false);
 
-  const filteredRows = useMemo(
-    () => applyPivotPageFilters(rows, filters),
-    [rows, filters],
+  const { payload, preparing, showFullPageLoader } = usePivotPrepare(
+    rows,
+    filters,
+    config,
+    loading,
   );
-  const kpis = useMemo(() => computeKpis(filteredRows), [filteredRows]);
 
   function patchFilters(patch: Partial<PivotPageFilters>) {
     setFilters((f) => ({ ...f, ...patch }));
@@ -69,16 +72,26 @@ export function PivotExplorerPage() {
     setFilters(DEFAULT_PIVOT_FILTERS);
   }
 
-  if (loading) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center gap-3 bg-background">
-        <div className="w-8 h-8 border-[3px] border-surface-border border-t-primary rounded-full animate-spin" />
-        <p className="text-[13px] text-secondary font-medium">Loading plan data...</p>
-      </div>
-    );
+  function resetPivotConfig() {
+    setConfig(DEFAULT_PIVOT_EXPLORER);
   }
 
-  if (error || !meta) {
+  function handleDownloadExcel() {
+    if (!payload?.built) {
+      window.alert("Pivot table is not ready yet. Please wait for it to finish loading.");
+      return;
+    }
+    setExporting(true);
+    try {
+      downloadPivotExcel(payload.built, config);
+    } catch (exportError) {
+      window.alert(exportError instanceof Error ? exportError.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  if (error || (!loading && !meta)) {
     return (
       <div className="h-screen flex items-center justify-center bg-background text-error p-8 text-center">
         <div>
@@ -89,8 +102,27 @@ export function PivotExplorerPage() {
     );
   }
 
+  if (showFullPageLoader) {
+    return (
+      <AppShell>
+        <LoadingPanel
+          message={loading ? "Loading plan data…" : "Building pivot explorer…"}
+          submessage={
+            loading
+              ? "Reading store and category rows"
+              : "Aggregating metrics — this may take a few seconds"
+          }
+        />
+      </AppShell>
+    );
+  }
+
+  const filteredRows = payload?.filteredRows ?? [];
+  const kpis = payload?.kpis ?? { target: 0, sales: 0, soh: 0, sellThrough: 0 };
+  const built = payload?.built ?? null;
+
   return (
-    <AppShell storeBadge={countUniqueStores(filteredRows)}>
+    <AppShell>
       <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
         <div className="flex items-center flex-wrap gap-2 px-4 py-2 bg-surface-container-lowest border-b border-surface-border shrink-0 shadow-sm">
           <span className="text-[10px] font-bold text-secondary uppercase tracking-wide">Store</span>
@@ -100,7 +132,7 @@ export function PivotExplorerPage() {
             onChange={(siteCode) => patchFilters({ siteCode })}
           >
             <option value="">All Stores</option>
-            {meta.dimensions.Site_Code.map((s) => (
+            {meta!.dimensions.Site_Code.map((s) => (
               <option key={s} value={s}>
                 Store {s}
               </option>
@@ -142,7 +174,7 @@ export function PivotExplorerPage() {
             onChange={(category) => patchFilters({ category })}
           >
             <option value="">All</option>
-            {meta.dimensions.Category.map((c) => (
+            {meta!.dimensions.Category.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -221,9 +253,28 @@ export function PivotExplorerPage() {
               </label>
             ))}
           </div>
+          <div className="w-px h-6 bg-surface-border" />
+          <button
+            type="button"
+            className="px-2.5 py-1 rounded-md border-[1.5px] border-surface-border text-[12px] font-medium text-secondary hover:bg-error hover:text-white hover:border-error"
+            onClick={resetPivotConfig}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            disabled={!built || preparing || exporting}
+            className="ml-auto px-3 py-1.5 rounded-md bg-primary text-white text-[12px] font-semibold hover:bg-primary-container disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            onClick={handleDownloadExcel}
+          >
+            {exporting ? "Exporting…" : "Download Excel"}
+          </button>
         </div>
 
-        <PivotExplorerTable rows={filteredRows} config={config} />
+        <div className="relative flex-1 min-h-0 flex flex-col">
+          {preparing ? <LoadingOverlay message="Updating pivot table…" /> : null}
+          <PivotExplorerTable built={built} config={config} />
+        </div>
       </div>
     </AppShell>
   );

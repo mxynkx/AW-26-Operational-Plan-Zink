@@ -3,14 +3,20 @@ import { AppShell } from "../components/AppShell";
 import { ChartsPanel } from "../components/ChartsPanel";
 import { DashboardFilterSidebar } from "../components/DashboardFilterSidebar";
 import { KpiBar } from "../components/KpiBar";
-import { SummaryTable } from "../components/SummaryTable";
 import { useData } from "../context/DataContext";
 import {
   DEFAULT_DASHBOARD_FILTERS,
   type DashboardFilters,
 } from "../types/planFilters";
 import { computeKpis } from "../utils/metrics";
-import { chartByCategoryContribution, chartBySize, chartBySizeSoh } from "../utils/pivot";
+import {
+  chartByCategoryContribution,
+  chartByCategorySoh,
+  chartBySeasonSales,
+  chartBySeasonSoh,
+  chartBySize,
+  chartBySizeSoh,
+} from "../utils/pivot";
 import {
   applyDashboardFilters,
   countUniqueMonths,
@@ -37,10 +43,10 @@ export function DashboardPage() {
   const kpis = useMemo(() => computeKpis(filteredRows), [filteredRows]);
   const sizeSales = useMemo(() => chartBySize(filteredRows), [filteredRows]);
   const sizeSoh = useMemo(() => chartBySizeSoh(filteredRows), [filteredRows]);
-  const categoryChart = useMemo(
-    () => chartByCategoryContribution(filteredRows),
-    [filteredRows],
-  );
+  const categorySales = useMemo(() => chartByCategoryContribution(filteredRows), [filteredRows]);
+  const categorySoh = useMemo(() => chartByCategorySoh(filteredRows), [filteredRows]);
+  const seasonSales = useMemo(() => chartBySeasonSales(filteredRows), [filteredRows]);
+  const seasonSoh = useMemo(() => chartBySeasonSoh(filteredRows), [filteredRows]);
 
   function resetFilters() {
     setFilters(DEFAULT_DASHBOARD_FILTERS);
@@ -67,7 +73,7 @@ export function DashboardPage() {
   }
 
   return (
-    <AppShell storeBadge={countUniqueStores(filteredRows)}>
+    <AppShell>
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <DashboardFilterSidebar
           meta={meta}
@@ -85,8 +91,14 @@ export function DashboardPage() {
             storeCount={countUniqueStores(filteredRows)}
             monthCount={countUniqueMonths(filteredRows)}
           />
-          <ChartsPanel sizeSales={sizeSales} sizeSoh={sizeSoh} categoryData={categoryChart} />
-          <SummaryTable rows={filteredRows} />
+          <ChartsPanel
+            categorySales={categorySales}
+            categorySoh={categorySoh}
+            sizeSales={sizeSales}
+            sizeSoh={sizeSoh}
+            seasonSales={seasonSales}
+            seasonSoh={seasonSoh}
+          />
         </div>
       </div>
     </AppShell>

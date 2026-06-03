@@ -9,9 +9,12 @@ export interface DonutSlice {
 }
 
 interface ChartsPanelProps {
+  categorySales: DonutSlice[];
+  categorySoh: DonutSlice[];
   sizeSales: DonutSlice[];
   sizeSoh: DonutSlice[];
-  categoryData: DonutSlice[];
+  seasonSales: DonutSlice[];
+  seasonSoh: DonutSlice[];
 }
 
 const CHART_HEIGHT = 200;
@@ -20,6 +23,7 @@ const OUTER_RADIUS = 82;
 
 const CATEGORY_COLORS = ["#2c5be8", "#0f9f6e", "#d97706", "#e8481e", "#7c3aed"];
 const SIZE_COLORS = ["#1d4ed8", "#0369a1", "#0891b2", "#059669", "#65a30d", "#ca8a04"];
+const SEASON_COLORS = ["#e8481e", "#d97706", "#2c5be8", "#0f9f6e"];
 
 function DonutChart({
   data,
@@ -90,15 +94,18 @@ function ChartLegend({
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
 
   return (
-    <div className="flex flex-col gap-1.5 text-[11px] text-secondary w-[130px] shrink-0">
+    <div className="flex flex-col gap-2 text-[11px] text-secondary w-[148px] min-w-[148px] shrink-0">
       {data.map((d, i) => (
-        <div key={d.name} className="flex items-center gap-2">
+        <div key={d.name} className="flex items-start gap-2 leading-snug">
           <span
-            className="w-2.5 h-2.5 rounded-full shrink-0"
+            className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
             style={{ backgroundColor: colors[i % colors.length] }}
           />
-          <span className="truncate" title={d.name}>
-            {d.name} {Math.round((d.value / total) * 100)}%
+          <span className="whitespace-normal break-words">
+            {d.name}{" "}
+            <span className="font-semibold text-on-surface tabular-nums">
+              {Math.round((d.value / total) * 100)}%
+            </span>
           </span>
         </div>
       ))}
@@ -122,14 +129,14 @@ function DonutCard({
   headerRight?: ReactNode;
 }) {
   return (
-    <div className="bg-surface-container-lowest border-[1.5px] border-surface-border rounded-lg p-4 shadow-sm flex flex-col">
+    <div className="bg-surface-container-lowest border-[1.5px] border-surface-border rounded-lg p-4 shadow-sm flex flex-col min-w-0">
       <div className="flex items-start justify-between gap-2 mb-0.5">
         <h3 className="text-[13px] font-bold text-on-surface">{title}</h3>
         {headerRight}
       </div>
       <p className="text-[11px] text-secondary mb-3">{subtitle}</p>
-      <div className="flex items-center gap-4" style={{ minHeight: CHART_HEIGHT }}>
-        <div className="flex-1 min-w-[140px]" style={{ height: CHART_HEIGHT }}>
+      <div className="flex items-center gap-2 min-w-0" style={{ minHeight: CHART_HEIGHT }}>
+        <div className="flex-1 min-w-0" style={{ height: CHART_HEIGHT }}>
           <DonutChart data={data} colors={colors} chartKey={chartKey} />
         </div>
         <ChartLegend data={data} colors={colors} />
@@ -138,7 +145,7 @@ function DonutCard({
   );
 }
 
-function SizeModeToggle({
+function UnitsModeToggle({
   mode,
   onChange,
 }: {
@@ -173,27 +180,41 @@ function SizeModeToggle({
   );
 }
 
-export function ChartsPanel({ sizeSales, sizeSoh, categoryData }: ChartsPanelProps) {
-  const [sizeMode, setSizeMode] = useState<"sales" | "soh">("sales");
-  const sizeData = sizeMode === "sales" ? sizeSales : sizeSoh;
-  const sizeSubtitle = `${sizeMode === "sales" ? "Sales" : "SOH"} Units by Size`;
+export function ChartsPanel({
+  categorySales,
+  categorySoh,
+  sizeSales,
+  sizeSoh,
+  seasonSales,
+  seasonSoh,
+}: ChartsPanelProps) {
+  const [unitsMode, setUnitsMode] = useState<"sales" | "soh">("soh");
+  const unitsLabel = unitsMode === "sales" ? "Sales" : "SOH";
+  const toggle = <UnitsModeToggle mode={unitsMode} onChange={setUnitsMode} />;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 shrink-0">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 shrink-0">
       <DonutCard
         title="Category Contribution"
-        subtitle="Sales Units by Category"
-        data={categoryData}
+        subtitle={`${unitsLabel} Units by Category`}
+        data={unitsMode === "sales" ? categorySales : categorySoh}
         colors={CATEGORY_COLORS}
-        chartKey="category"
+        chartKey={`category-${unitsMode}`}
+        headerRight={toggle}
       />
       <DonutCard
         title="Size Curve"
-        subtitle={sizeSubtitle}
-        data={sizeData}
+        subtitle={`${unitsLabel} Units by Size`}
+        data={unitsMode === "sales" ? sizeSales : sizeSoh}
         colors={SIZE_COLORS}
-        chartKey={`size-${sizeMode}`}
-        headerRight={<SizeModeToggle mode={sizeMode} onChange={setSizeMode} />}
+        chartKey={`size-${unitsMode}`}
+      />
+      <DonutCard
+        title={`${unitsLabel} by Season`}
+        subtitle="Older / CS-1 / CS / CS+1"
+        data={unitsMode === "sales" ? seasonSales : seasonSoh}
+        colors={SEASON_COLORS}
+        chartKey={`season-${unitsMode}`}
       />
     </div>
   );

@@ -3,13 +3,12 @@ import { TopNav } from "./TopNav";
 
 interface AppShellProps {
   children: ReactNode;
-  storeBadge?: number;
 }
 
-export function AppShell({ children, storeBadge }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <TopNav storeBadge={storeBadge} />
+      <TopNav />
       {children}
     </div>
   );
