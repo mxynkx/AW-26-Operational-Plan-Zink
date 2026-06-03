@@ -1,4 +1,3 @@
-import { useState, type ReactNode } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatNumber } from "../utils/format";
 
@@ -9,11 +8,8 @@ export interface DonutSlice {
 }
 
 interface ChartsPanelProps {
-  categorySales: DonutSlice[];
   categorySoh: DonutSlice[];
-  sizeSales: DonutSlice[];
   sizeSoh: DonutSlice[];
-  seasonSales: DonutSlice[];
   seasonSoh: DonutSlice[];
 }
 
@@ -119,21 +115,16 @@ function DonutCard({
   data,
   colors,
   chartKey,
-  headerRight,
 }: {
   title: string;
   subtitle: string;
   data: DonutSlice[];
   colors: string[];
   chartKey: string;
-  headerRight?: ReactNode;
 }) {
   return (
     <div className="bg-surface-container-lowest border-[1.5px] border-surface-border rounded-lg p-4 shadow-sm flex flex-col min-w-0">
-      <div className="flex items-start justify-between gap-2 mb-0.5">
-        <h3 className="text-[13px] font-bold text-on-surface">{title}</h3>
-        {headerRight}
-      </div>
+      <h3 className="text-[13px] font-bold text-on-surface mb-0.5">{title}</h3>
       <p className="text-[11px] text-secondary mb-3">{subtitle}</p>
       <div className="flex items-center gap-2 min-w-0" style={{ minHeight: CHART_HEIGHT }}>
         <div className="flex-1 min-w-0" style={{ height: CHART_HEIGHT }}>
@@ -145,76 +136,29 @@ function DonutCard({
   );
 }
 
-function UnitsModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: "sales" | "soh";
-  onChange: (mode: "sales" | "soh") => void;
-}) {
-  return (
-    <div className="flex border-[1.5px] border-surface-border rounded-md overflow-hidden shrink-0">
-      <button
-        type="button"
-        className="px-3 py-0.5 text-[11px] font-semibold border-none cursor-pointer transition-colors"
-        style={{
-          background: mode === "sales" ? "#2c5be8" : "#fff",
-          color: mode === "sales" ? "#fff" : "#5a5f7a",
-        }}
-        onClick={() => onChange("sales")}
-      >
-        Sales
-      </button>
-      <button
-        type="button"
-        className="px-3 py-0.5 text-[11px] font-semibold border-none cursor-pointer transition-colors"
-        style={{
-          background: mode === "soh" ? "#2c5be8" : "#fff",
-          color: mode === "soh" ? "#fff" : "#5a5f7a",
-        }}
-        onClick={() => onChange("soh")}
-      >
-        SOH
-      </button>
-    </div>
-  );
-}
-
-export function ChartsPanel({
-  categorySales,
-  categorySoh,
-  sizeSales,
-  sizeSoh,
-  seasonSales,
-  seasonSoh,
-}: ChartsPanelProps) {
-  const [unitsMode, setUnitsMode] = useState<"sales" | "soh">("soh");
-  const unitsLabel = unitsMode === "sales" ? "Sales" : "SOH";
-  const toggle = <UnitsModeToggle mode={unitsMode} onChange={setUnitsMode} />;
-
+export function ChartsPanel({ categorySoh, sizeSoh, seasonSoh }: ChartsPanelProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 shrink-0">
       <DonutCard
         title="Category Contribution"
-        subtitle={`${unitsLabel} Units by Category`}
-        data={unitsMode === "sales" ? categorySales : categorySoh}
+        subtitle="SOH Units by Category"
+        data={categorySoh}
         colors={CATEGORY_COLORS}
-        chartKey={`category-${unitsMode}`}
-        headerRight={toggle}
+        chartKey="category-soh"
       />
       <DonutCard
         title="Size Curve"
-        subtitle={`${unitsLabel} Units by Size`}
-        data={unitsMode === "sales" ? sizeSales : sizeSoh}
+        subtitle="SOH Units by Size"
+        data={sizeSoh}
         colors={SIZE_COLORS}
-        chartKey={`size-${unitsMode}`}
+        chartKey="size-soh"
       />
       <DonutCard
-        title={`${unitsLabel} by Season`}
+        title="SOH by Season"
         subtitle="Older / CS-1 / CS / CS+1"
-        data={unitsMode === "sales" ? seasonSales : seasonSoh}
+        data={seasonSoh}
         colors={SEASON_COLORS}
-        chartKey={`season-${unitsMode}`}
+        chartKey="season-soh"
       />
     </div>
   );

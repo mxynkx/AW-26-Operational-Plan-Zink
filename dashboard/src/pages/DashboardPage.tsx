@@ -10,11 +10,8 @@ import {
 } from "../types/planFilters";
 import { computeKpis } from "../utils/metrics";
 import {
-  chartByCategoryContribution,
   chartByCategorySoh,
-  chartBySeasonSales,
   chartBySeasonSoh,
-  chartBySize,
   chartBySizeSoh,
 } from "../utils/pivot";
 import {
@@ -40,11 +37,8 @@ export function DashboardPage() {
   );
 
   const kpis = useMemo(() => computeKpis(filteredRows), [filteredRows]);
-  const sizeSales = useMemo(() => chartBySize(filteredRows), [filteredRows]);
   const sizeSoh = useMemo(() => chartBySizeSoh(filteredRows), [filteredRows]);
-  const categorySales = useMemo(() => chartByCategoryContribution(filteredRows), [filteredRows]);
   const categorySoh = useMemo(() => chartByCategorySoh(filteredRows), [filteredRows]);
-  const seasonSales = useMemo(() => chartBySeasonSales(filteredRows), [filteredRows]);
   const seasonSoh = useMemo(() => chartBySeasonSoh(filteredRows), [filteredRows]);
 
   function resetFilters() {
@@ -90,11 +84,8 @@ export function DashboardPage() {
             storeCount={countUniqueStores(filteredRows)}
           />
           <ChartsPanel
-            categorySales={categorySales}
             categorySoh={categorySoh}
-            sizeSales={sizeSales}
             sizeSoh={sizeSoh}
-            seasonSales={seasonSales}
             seasonSoh={seasonSoh}
           />
         </div>
