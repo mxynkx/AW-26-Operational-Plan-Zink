@@ -67,13 +67,17 @@ export function PivotExplorerTable({ rows, config }: PivotExplorerTableProps) {
   return (
     <div className="aw26-scroll-panel px-4 py-3">
       <div className="aw26-scroll-inner bg-surface-container-lowest border-[1.5px] border-surface-border rounded-lg shadow-sm inline-block min-w-full">
-        <table className="aw26-data-table text-[12px] min-w-max">
+        <table className="aw26-data-table aw26-pivot-table text-[12px] min-w-max">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th colSpan={rspan} rowSpan={2} className="aw26-pivot-hg text-left align-middle min-w-[140px]">
+              <th rowSpan={2} className="aw26-pivot-hg aw26-pivot-pin-h1 text-left align-middle">
                 {result.row1Label}
-                {hasRow2 ? ` → ${result.row2Label}` : ""}
               </th>
+              {hasRow2 ? (
+                <th rowSpan={2} className="aw26-pivot-hg aw26-pivot-pin-h2 text-left align-middle">
+                  {result.row2Label}
+                </th>
+              ) : null}
               {hasCol ? (
                 colKeys.map((kc) => (
                   <th key={String(kc)} colSpan={mc} className="aw26-pivot-hg text-center border-l border-white/15">
@@ -104,16 +108,18 @@ export function PivotExplorerTable({ rows, config }: PivotExplorerTableProps) {
               >
                 {hasRow2 ? (
                   row.showRow1 ? (
-                    <td rowSpan={row.row1RowSpan} className="aw26-pivot-rh align-top">
+                    <td rowSpan={row.row1RowSpan} className="aw26-pivot-rh aw26-pivot-pin-1 align-top">
                       {row.row1Label}
                     </td>
                   ) : null
                 ) : (
-                  <td className="aw26-pivot-rh">{row.row1Label}</td>
+                  <td className="aw26-pivot-rh aw26-pivot-pin-1">{row.row1Label}</td>
                 )}
                 {hasRow2 ? (
                   <td
-                    className={`${row.kind === "subtotal" ? "aw26-pivot-rh-stl" : "aw26-pivot-rh-sub"} bg-inherit`}
+                    className={`aw26-pivot-pin-2 ${
+                      row.kind === "subtotal" ? "aw26-pivot-rh-stl" : "aw26-pivot-rh-sub"
+                    }`}
                   >
                     {row.row2Label}
                   </td>
@@ -139,7 +145,7 @@ export function PivotExplorerTable({ rows, config }: PivotExplorerTableProps) {
               </tr>
             ))}
             <tr>
-              <td colSpan={rspan} className="aw26-pivot-rh-tot">
+              <td colSpan={rspan} className="aw26-pivot-rh-tot aw26-pivot-pin-tot">
                 GRAND TOTAL
               </td>
               {hasCol ? (
