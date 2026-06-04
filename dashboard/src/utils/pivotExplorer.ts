@@ -196,6 +196,17 @@ export function rowsForDim(
   return rows.filter((r) => dimKey(r, dim) === key);
 }
 
+function matchesPivotDim(
+  row: TableRow,
+  dim: DimKey,
+  key: string | number,
+): boolean {
+  if (dim === "none" || dim === "sz" || key === "__") {
+    return true;
+  }
+  return dimKey(row, dim) === key;
+}
+
 export function rowsForPivotCell(
   rows: TableRow[],
   config: PivotExplorerConfig,
@@ -203,14 +214,12 @@ export function rowsForPivotCell(
   k2: string | number,
   kc: string | number,
 ): TableRow[] {
-  const hasRow2 = config.row2 !== "none";
-  const hasCol = config.col !== "none";
-  return rows.filter((r) => {
-    if (config.row1 !== "sz" && dimKey(r, config.row1) !== k1) return false;
-    if (hasRow2 && config.row2 !== "sz" && dimKey(r, config.row2) !== k2) return false;
-    if (hasCol && config.col !== "sz" && dimKey(r, config.col) !== kc) return false;
-    return true;
-  });
+  return rows.filter(
+    (r) =>
+      matchesPivotDim(r, config.row1, k1) &&
+      matchesPivotDim(r, config.row2, k2) &&
+      matchesPivotDim(r, config.col, kc),
+  );
 }
 
 export function aggregateForPivotKeys(
@@ -233,12 +242,9 @@ export function rowsForPivotRowTotal(
   k1: string | number,
   k2: string | number,
 ): TableRow[] {
-  const hasRow2 = config.row2 !== "none";
-  return rows.filter((r) => {
-    if (config.row1 !== "sz" && dimKey(r, config.row1) !== k1) return false;
-    if (hasRow2 && config.row2 !== "sz" && dimKey(r, config.row2) !== k2) return false;
-    return true;
-  });
+  return rows.filter(
+    (r) => matchesPivotDim(r, config.row1, k1) && matchesPivotDim(r, config.row2, k2),
+  );
 }
 
 export function aggregateForPivotRowTotal(
