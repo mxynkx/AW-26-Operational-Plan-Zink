@@ -21,7 +21,7 @@ import {
 import { formatNumber } from "../utils/format";
 import { downloadPivotExcel } from "../utils/exportPivotExcel";
 
-const DIM_OPTIONS: DimKey[] = ["st", "mo", "gr", "cat", "sz", "none"];
+const DIM_OPTIONS: DimKey[] = ["st", "mo", "gr", "cat", "sn", "sz", "none"];
 
 function DimSelect({
   value,

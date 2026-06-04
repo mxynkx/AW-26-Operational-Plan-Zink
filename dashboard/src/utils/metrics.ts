@@ -1,4 +1,4 @@
-import type { SizeColumn, TableRow } from "../types/plan";
+import type { SeasonColumn, SizeColumn, TableRow } from "../types/plan";
 
 /** Target is defined once per store + month (not per category row). */
 export function storeMonthKey(row: TableRow): string {
@@ -47,6 +47,17 @@ export function aggregateRowMetrics(rows: TableRow[]) {
 export function aggregateRowMetricsForSize(rows: TableRow[], size: SizeColumn) {
   const sales = rows.reduce((sum, row) => sum + row.Sales_By_Size[size], 0);
   const soh = rows.reduce((sum, row) => sum + row.SOH_By_Size[size], 0);
+  return {
+    sales,
+    soh,
+    target: 0,
+    sellThrough: computeSellThroughPercent(sales, soh),
+  };
+}
+
+export function aggregateRowMetricsForSeason(rows: TableRow[], season: SeasonColumn) {
+  const sales = rows.reduce((sum, row) => sum + (row.Season_Sales[season] ?? 0), 0);
+  const soh = rows.reduce((sum, row) => sum + (row.Season_SOH[season] ?? 0), 0);
   return {
     sales,
     soh,

@@ -1,6 +1,25 @@
-import { aggregateRowMetrics, aggregateRowMetricsForSize, storeMonthKey } from "./metrics";
-import { dimKey, dimLabel, isSizeDim, sizeKeyFromPivot, sortDimKeys, DIM_LABELS } from "./dimensions";
-import { SIZE_COLUMNS, type SizeColumn, type TableRow } from "../types/plan";
+import {
+  aggregateRowMetrics,
+  aggregateRowMetricsForSeason,
+  aggregateRowMetricsForSize,
+  storeMonthKey,
+} from "./metrics";
+import {
+  dimKey,
+  dimLabel,
+  isSliceDim,
+  sliceKeyFromPivot,
+  sortDimKeys,
+  DIM_LABELS,
+  type PivotSlice,
+} from "./dimensions";
+import {
+  SEASON_COLUMNS,
+  SIZE_COLUMNS,
+  type SeasonColumn,
+  type SizeColumn,
+  type TableRow,
+} from "../types/plan";
 import type { DimKey, PivotExplorerConfig } from "../types/planFilters";
 
 export type PivotMetricKey = "sales" | "soh" | "target" | "sellThrough";
@@ -21,18 +40,26 @@ function emptyPivotCell(): PivotExplorerCell {
   return { sales: 0, soh: 0, target: 0 };
 }
 
-function usesSizeDim(config: PivotExplorerConfig): boolean {
-  return isSizeDim(config.row1) || isSizeDim(config.row2) || isSizeDim(config.col);
+function usesSliceDim(config: PivotExplorerConfig): boolean {
+  return isSliceDim(config.row1) || isSliceDim(config.row2) || isSliceDim(config.col);
 }
 
-function addRow(cell: PivotExplorerCell, row: TableRow, size: SizeColumn | null): void {
-  if (size) {
-    cell.sales += row.Sales_By_Size[size];
-    cell.soh += row.SOH_By_Size[size];
+function addRow(cell: PivotExplorerCell, row: TableRow, slice: PivotSlice, includeTarget: boolean): void {
+  if (slice.size) {
+    cell.sales += row.Sales_By_Size[slice.size];
+    cell.soh += row.SOH_By_Size[slice.size];
+    return;
+  }
+  if (slice.season) {
+    cell.sales += row.Season_Sales[slice.season] ?? 0;
+    cell.soh += row.Season_SOH[slice.season] ?? 0;
     return;
   }
   cell.sales += row.Sales_Units;
   cell.soh += row.Total_SOH_Units;
+  if (!includeTarget) {
+    return;
+  }
   const sm = storeMonthKey(row);
   const seen = (cell as PivotExplorerCell & { _seen?: Set<string> })._seen ?? new Set<string>();
   if (!seen.has(sm)) {
@@ -42,27 +69,83 @@ function addRow(cell: PivotExplorerCell, row: TableRow, size: SizeColumn | null)
   (cell as PivotExplorerCell & { _seen?: Set<string> })._seen = seen;
 }
 
-type SizeSlot = SizeColumn | null;
+type SliceSlot = SizeColumn | SeasonColumn | null;
 
-function sizeSlots(dim: DimKey, use: boolean): SizeSlot[] {
-  return dim === "sz" && use ? [...SIZE_COLUMNS] : [null];
+function dimensionSlots(dim: DimKey, use: boolean): SliceSlot[] {
+  if (!use || dim === "none") {
+    return [null];
+  }
+  if (dim === "sz") {
+    return [...SIZE_COLUMNS];
+  }
+  if (dim === "sn") {
+    return [...SEASON_COLUMNS];
+  }
+  return [null];
 }
 
-function resolveSliceSize(
-  sz1: SizeSlot,
-  sz2: SizeSlot,
-  szc: SizeSlot,
+function sliceKeyForDim(dim: DimKey, slot: SliceSlot, row: TableRow): string | number {
+  if (dim === "sz" || dim === "sn") {
+    return slot!;
+  }
+  return dimKey(row, dim);
+}
+
+function resolveSlice(
+  s1: SliceSlot,
+  s2: SliceSlot,
+  sc: SliceSlot,
   config: PivotExplorerConfig,
   hasRow2: boolean,
   hasCol: boolean,
-): SizeColumn | null {
-  const parts: SizeColumn[] = [];
-  if (config.row1 === "sz" && sz1) parts.push(sz1);
-  if (hasRow2 && config.row2 === "sz" && sz2) parts.push(sz2);
-  if (hasCol && config.col === "sz" && szc) parts.push(szc);
-  if (parts.length === 0) return null;
-  const first = parts[0];
-  return parts.every((p) => p === first) ? first : null;
+): PivotSlice | null {
+  const sizes: SizeColumn[] = [];
+  const seasons: SeasonColumn[] = [];
+
+  const collect = (dim: DimKey, slot: SliceSlot) => {
+    if (dim === "sz" && slot) {
+      sizes.push(slot as SizeColumn);
+    }
+    if (dim === "sn" && slot) {
+      seasons.push(slot as SeasonColumn);
+    }
+  };
+
+  collect(config.row1, s1);
+  if (hasRow2) {
+    collect(config.row2, s2);
+  }
+  if (hasCol) {
+    collect(config.col, sc);
+  }
+
+  if (sizes.length > 1 && !sizes.every((s) => s === sizes[0])) {
+    return null;
+  }
+  if (seasons.length > 1 && !seasons.every((s) => s === seasons[0])) {
+    return null;
+  }
+  if (sizes.length > 0 && seasons.length > 0) {
+    return null;
+  }
+
+  const size = sizes[0] ?? null;
+  const season = seasons[0] ?? null;
+  if ((s1 || s2 || sc) && !size && !season) {
+    return null;
+  }
+
+  return { size, season };
+}
+
+function aggregateForSlice(rows: TableRow[], slice: PivotSlice) {
+  if (slice.size) {
+    return aggregateRowMetricsForSize(rows, slice.size);
+  }
+  if (slice.season) {
+    return aggregateRowMetricsForSeason(rows, slice.season);
+  }
+  return aggregateRowMetrics(rows);
 }
 
 function sellThrough(cell: PivotExplorerCell): number {
@@ -110,21 +193,24 @@ export function buildPivotExplorer(
   const r2Set = new Set<string | number>();
   const cSet = new Set<string | number>();
 
-  const slots1 = sizeSlots(row1, true);
-  const slots2 = sizeSlots(row2, hasRow2);
-  const slotsC = sizeSlots(col, hasCol);
-  const includeTarget = !usesSizeDim(config);
+  const slots1 = dimensionSlots(row1, true);
+  const slots2 = dimensionSlots(row2, hasRow2);
+  const slotsC = dimensionSlots(col, hasCol);
+  const includeTarget = !usesSliceDim(config);
 
   for (const row of rows) {
-    for (const sz1 of slots1) {
-      for (const sz2 of slots2) {
-        for (const szc of slotsC) {
-          const size = resolveSliceSize(sz1, sz2, szc, config, hasRow2, hasCol);
-          if ((sz1 || sz2 || szc) && !size) continue;
+    for (const s1 of slots1) {
+      for (const s2 of slots2) {
+        for (const sc of slotsC) {
+          const slice = resolveSlice(s1, s2, sc, config, hasRow2, hasCol);
+          if ((s1 || s2 || sc) && !slice) {
+            continue;
+          }
+          const activeSlice = slice ?? { size: null, season: null };
 
-          const k1 = row1 === "sz" ? size! : dimKey(row, row1);
-          const k2 = hasRow2 ? (row2 === "sz" ? size! : dimKey(row, row2)) : "__";
-          const kc = hasCol ? (col === "sz" ? size! : dimKey(row, col)) : "__";
+          const k1 = sliceKeyForDim(row1, s1, row);
+          const k2 = hasRow2 ? sliceKeyForDim(row2, s2, row) : "__";
+          const kc = hasCol ? sliceKeyForDim(col, sc, row) : "__";
           r1Set.add(k1);
           r2Set.add(k2);
           cSet.add(kc);
@@ -134,7 +220,7 @@ export function buildPivotExplorer(
             cell = emptyPivotCell();
             map.set(key, cell);
           }
-          addRow(cell, row, includeTarget ? null : size);
+          addRow(cell, row, activeSlice, includeTarget);
         }
       }
     }
@@ -151,11 +237,9 @@ export function buildPivotExplorer(
 
   const colGrand = new Map<string | number, PivotExplorerCell & { st: number }>();
   for (const kc of colKeys) {
-    const subset = hasCol
-      ? rows.filter((r) => (col === "sz" ? true : dimKey(r, col) === kc))
-      : rows;
-    const colSize = col === "sz" && hasCol ? (String(kc) as SizeColumn) : null;
-    const a = colSize ? aggregateRowMetricsForSize(subset, colSize) : aggregateRowMetrics(subset);
+    const subset = hasCol && !isSliceDim(col) ? rows.filter((r) => dimKey(r, col) === kc) : rows;
+    const colSlice = hasCol && isSliceDim(col) ? sliceKeyFromPivot(config, "__", "__", kc, false, true) : { size: null, season: null };
+    const a = aggregateForSlice(subset, colSlice);
     colGrand.set(kc, {
       sales: a.sales,
       soh: a.soh,
@@ -190,7 +274,7 @@ export function rowsForDim(
   dim: DimKey,
   key: string | number,
 ): TableRow[] {
-  if (dim === "none" || dim === "sz") {
+  if (dim === "none" || isSliceDim(dim)) {
     return rows;
   }
   return rows.filter((r) => dimKey(r, dim) === key);
@@ -201,7 +285,7 @@ function matchesPivotDim(
   dim: DimKey,
   key: string | number,
 ): boolean {
-  if (dim === "none" || dim === "sz" || key === "__") {
+  if (dim === "none" || isSliceDim(dim) || key === "__") {
     return true;
   }
   return dimKey(row, dim) === key;
@@ -232,8 +316,8 @@ export function aggregateForPivotKeys(
   const hasRow2 = config.row2 !== "none";
   const hasCol = config.col !== "none";
   const subset = rowsForPivotCell(rows, config, k1, k2, kc);
-  const size = sizeKeyFromPivot(config, k1, k2, kc, hasRow2, hasCol);
-  return size ? aggregateRowMetricsForSize(subset, size) : aggregateRowMetrics(subset);
+  const slice = sliceKeyFromPivot(config, k1, k2, kc, hasRow2, hasCol);
+  return aggregateForSlice(subset, slice);
 }
 
 export function rowsForPivotRowTotal(
@@ -256,8 +340,8 @@ export function aggregateForPivotRowTotal(
   const hasRow2 = config.row2 !== "none";
   const hasCol = config.col !== "none";
   const subset = rowsForPivotRowTotal(rows, config, k1, k2);
-  const size = sizeKeyFromPivot(config, k1, k2, "__", hasRow2, hasCol);
-  return size ? aggregateRowMetricsForSize(subset, size) : aggregateRowMetrics(subset);
+  const slice = sliceKeyFromPivot(config, k1, k2, "__", hasRow2, hasCol);
+  return aggregateForSlice(subset, slice);
 }
 
 export function rowSubtotal(rows: TableRow[], row1: DimKey, k1: string | number): PivotExplorerCell {
