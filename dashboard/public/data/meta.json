@@ -1,7 +1,7 @@
 {
   "source_file": "AW26 Operational Plan June 2026V2.xlsx",
-  "row_count_raw": 12600,
-  "row_count_pivot": 151200,
+  "row_count_raw": 15960,
+  "row_count_pivot": 15960,
   "dimensions": {
     "Site_Code": [
       "101",
@@ -102,6 +102,7 @@
       "8559",
       "964",
       "972",
+      "CT",
       "P001",
       "P004",
       "P006",
@@ -256,6 +257,8 @@
       "P757",
       "P758",
       "P760",
+      "PT",
+      "SSL",
       "T8VX",
       "T8VY",
       "T8WA",
@@ -289,6 +292,7 @@
       1,
       2,
       3,
+      6,
       7,
       8,
       9,
@@ -325,44 +329,11 @@
       "CS-1",
       "CS",
       "CS+1"
-    ],
-    "Grain": [
-      "Base",
-      "Size",
-      "Season"
     ]
   },
-  "metrics": [
-    "Sales_Units_By_Size",
-    "SOH_Units_By_Size",
-    "Season_Sales_Units",
-    "Season_SOH_Units",
-    "Target_Store_Month",
-    "Sales_Units_Row",
-    "Total_SOH_Units_Row"
-  ],
   "verification": {
-    "sales_units_row_total": 326472.0,
-    "sales_units_by_size_total": 326782.0,
-    "sales_units_delta": -310.0,
-    "season_sales_total": 326383.0,
-    "season_sales_row_total": 326383.0,
-    "total_soh_row_total": 449840.0,
-    "target_store_month_total": 3298009195.0,
-    "size_breakdown": {
-      "1XS": 18664.0,
-      "2S": 51048.0,
-      "3M": 76346.0,
-      "4L": 78348.0,
-      "5XL": 60549.0,
-      "6XXL": 41827.0,
-      "7XXXL": 0.0
-    },
-    "season_breakdown": {
-      "Older": 39273.0,
-      "CS-1": 84608.0,
-      "CS": 180693.0,
-      "CS+1": 21809.0
-    }
+    "sales_units_row_total": 461417.0,
+    "total_soh_row_total": 634434.0,
+    "target_store_month_total": 4247747855.0
   }
 }

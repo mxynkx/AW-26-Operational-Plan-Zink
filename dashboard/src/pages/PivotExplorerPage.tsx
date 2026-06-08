@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { FilterSelect } from "../components/FilterSelect";
 import { KpiBar } from "../components/KpiBar";
 import { LoadingOverlay, LoadingPanel } from "../components/LoadingPanel";
 import { PivotExplorerTable } from "../components/PivotExplorerTable";
-import { MONTH_LABELS, MONTH_ORDER, GRADE_ORDER, GRADE_LABELS } from "../config/months";
+import { MONTH_LABELS, GRADE_ORDER, GRADE_LABELS } from "../config/months";
 import { useData } from "../context/DataContext";
 import { usePivotPrepare } from "../hooks/usePivotPrepare";
 import {
@@ -53,6 +53,16 @@ function DimSelect({
 export function PivotExplorerPage() {
   const { rows, meta, loading, error } = useData();
   const [filters, setFilters] = useState<PivotPageFilters>(DEFAULT_PIVOT_FILTERS);
+
+  // Reset filter if no longer valid after a season change
+  useEffect(() => {
+    if (filters.month && !meta?.dimensions.Month.map(String).includes(filters.month)) {
+      setFilters((prev) => ({ ...prev, month: "" }));
+    }
+    if (filters.siteCode && !meta?.dimensions.Site_Code.includes(filters.siteCode)) {
+      setFilters((prev) => ({ ...prev, siteCode: "" }));
+    }
+  }, [meta, filters.month, filters.siteCode]);
   const [config, setConfig] = useState<PivotExplorerConfig>(DEFAULT_PIVOT_EXPLORER);
   const [exporting, setExporting] = useState(false);
 
@@ -145,9 +155,9 @@ export function PivotExplorerPage() {
             onChange={(month) => patchFilters({ month })}
           >
             <option value="">All</option>
-            {MONTH_ORDER.map((m) => (
+            {meta?.dimensions.Month.map((m) => (
               <option key={m} value={String(m)}>
-                {MONTH_LABELS[m]}
+                {MONTH_LABELS[m] ?? m}
               </option>
             ))}
           </FilterSelect>

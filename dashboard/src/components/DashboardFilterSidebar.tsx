@@ -1,4 +1,4 @@
-import { MONTH_LABELS, MONTH_ORDER } from "../config/months";
+import { MONTH_LABELS } from "../config/months";
 import { GRADE_LABELS, GRADE_ORDER } from "../config/months";
 import type { PlanMeta } from "../types/plan";
 import type { DashboardFilters } from "../types/planFilters";
@@ -45,7 +45,7 @@ export function DashboardFilterSidebar({
         onChange={(month) => onChange({ ...filters, month })}
       >
         <option value="">All Months</option>
-        {MONTH_ORDER.map((m) => (
+        {meta.dimensions.Month.map((m) => (
           <option key={m} value={String(m)}>
             {MONTH_LABELS[m]}
           </option>

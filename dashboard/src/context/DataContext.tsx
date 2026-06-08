@@ -5,6 +5,9 @@ import { applyTableFilters } from "../utils/tableFilters";
 
 interface DataContextValue {
   rows: TableRow[];
+  allRows: TableRow[];
+  season: "AW26" | "SS26" | "Both";
+  setSeason: (season: "AW26" | "SS26" | "Both") => void;
   meta: PlanMeta | null;
   loading: boolean;
   error: string | null;
@@ -16,7 +19,8 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [rows, setRows] = useState<TableRow[]>([]);
+  const [allRows, setAllRows] = useState<TableRow[]>([]);
+  const [season, setSeason] = useState<"AW26" | "SS26" | "Both">("AW26");
   const [meta, setMeta] = useState<PlanMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           metaResponse.json() as Promise<PlanMeta>,
         ]);
 
-        setRows(tableData);
+        setAllRows(tableData);
         setMeta(metaData);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load data.");
@@ -51,6 +55,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
+  const rows = useMemo(() => {
+    if (season === "Both") return allRows;
+    return allRows.filter((r) => r.Season_Code === season);
+  }, [allRows, season]);
+
+  const filteredMeta = useMemo(() => {
+    if (!meta) return null;
+    const activeStores = Array.from(new Set(rows.map((r) => r.Site_Code))).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true }),
+    );
+    const activeMonths = Array.from(
+      new Set(rows.map((r) => r.Month).filter((m) => m !== null) as number[]),
+    ).sort((a, b) => {
+      const order = [6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+
+    return {
+      ...meta,
+      dimensions: {
+        ...meta.dimensions,
+        Site_Code: activeStores,
+        Month: activeMonths,
+      },
+    };
+  }, [meta, rows]);
+
   const filteredRows = useMemo(
     () => applyTableFilters(rows, createEmptyTableFilters(), search),
     [rows, search],
@@ -59,14 +90,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       rows,
-      meta,
+      allRows,
+      season,
+      setSeason,
+      meta: filteredMeta,
       loading,
       error,
       search,
       setSearch,
       filteredRows,
     }),
-    [rows, meta, loading, error, search, filteredRows],
+    [rows, allRows, season, filteredMeta, loading, error, search, filteredRows],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

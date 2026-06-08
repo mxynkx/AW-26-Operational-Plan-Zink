@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
 import { ChartsPanel } from "../components/ChartsPanel";
 import { DashboardFilterSidebar } from "../components/DashboardFilterSidebar";
@@ -22,6 +22,16 @@ import {
 export function DashboardPage() {
   const { rows, meta, loading, error } = useData();
   const [filters, setFilters] = useState<DashboardFilters>(DEFAULT_DASHBOARD_FILTERS);
+
+  // Reset filter if no longer valid after a season change
+  useEffect(() => {
+    if (filters.month && !meta?.dimensions.Month.map(String).includes(filters.month)) {
+      setFilters((prev) => ({ ...prev, month: "" }));
+    }
+    if (filters.siteCode && !meta?.dimensions.Site_Code.includes(filters.siteCode)) {
+      setFilters((prev) => ({ ...prev, siteCode: "" }));
+    }
+  }, [meta, filters.month, filters.siteCode]);
 
   const categories = meta?.dimensions.Category ?? [];
 

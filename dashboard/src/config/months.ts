@@ -1,6 +1,7 @@
-export const MONTH_ORDER = [7, 8, 9, 10, 11, 12, 1, 2, 3] as const;
+export const MONTH_ORDER = [6, 7, 8, 9, 10, 11, 12, 1, 2, 3] as const;
 
 export const MONTH_LABELS: Record<number, string> = {
+  6: "June",
   7: "July",
   8: "August",
   9: "September",

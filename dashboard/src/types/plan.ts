@@ -17,6 +17,7 @@ export interface TableRow {
   SOH_By_Size: Record<SizeColumn, number>;
   Season_Sales: Record<SeasonColumn, number>;
   Season_SOH: Record<SeasonColumn, number>;
+  Season_Code: "AW26" | "SS26";
 }
 
 export interface PlanMeta {
